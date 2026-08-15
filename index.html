@@ -2,21 +2,303 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Graz Hava</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Graz Hava Durumu</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background-color: #f0f8ff; margin: 0; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h1 { color: #333; }
-        .temp { font-size: 3em; color: #007bff; margin: 10px 0; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 15px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding-bottom: 30px;
+        }
+
+        /* Üst Bilgi Barı (Canlı Saat ve Güncelleme) */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 10px 15px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            opacity: 0.9;
+        }
+
+        /* Anlık Hava Kartı */
+        .current-weather {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .location { font-size: 1.6em; font-weight: bold; }
+        .date { font-size: 0.9em; opacity: 0.8; margin-top: 5px; }
+        .temp { font-size: 4.5em; font-weight: 300; margin: 15px 0; }
+        .condition { font-size: 1.2em; font-weight: 500; }
+        .details { display: flex; justify-content: center; gap: 20px; margin-top: 15px; font-size: 0.9em; opacity: 0.9; }
+
+        /* 10 Günlük Tahmin Listesi */
+        .forecast {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 15px;
+        }
+
+        .forecast-title { font-weight: bold; margin-bottom: 10px; padding-left: 5px; font-size: 1.1em; }
+
+        .forecast-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px 15px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .forecast-item:active { background: rgba(255, 255, 255, 0.25); }
+
+        .forecast-day { width: 35%; font-weight: 500; }
+        .forecast-icon { width: 20%; text-align: center; font-size: 1.3em; }
+        .forecast-temp { width: 45%; text-align: right; display: flex; justify-content: flex-end; gap: 12px; }
+        .temp-max { font-weight: bold; }
+        .temp-min { opacity: 0.7; }
+
+        /* Detay / Saatlik Modal (Sayfa açılır gibi) */
+        #modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-content {
+            background: #1e3c72;
+            width: 100%;
+            max-width: 500px;
+            max-height: 80vh;
+            border-radius: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+
+        .close-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 1.2em;
+            width: 35px; height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .hourly-list { display: flex; flex-direction: column; gap: 8px; }
+        .hourly-item {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.1);
+            padding: 10px 15px;
+            border-radius: 10px;
+        }
+
+        #loading { text-align: center; margin-top: 100px; font-size: 1.2em; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>Graz Hava Durumu</h1>
-        <div class="temp">18°C</div>
-        <p>Parçalı Bulutlu</p>
+
+    <div id="loading">Harika hava durumu yükleniyor...</div>
+
+    <div class="container" id="app" style="display:none;">
+        <!-- Üst Bar: Canlı Saat ve Son Güncelleme -->
+        <div class="top-bar">
+            <span id="live-clock">Saat: --:--</span>
+            <span id="last-update">Güncelleme: --:--</span>
+        </div>
+
+        <!-- Anlık Hava Durumu -->
+        <div class="current-weather">
+            <div class="location">Graz, Avusturya</div>
+            <div class="date" id="current-date">Bugün</div>
+            <div class="temp" id="current-temp">--°</div>
+            <div class="condition" id="current-condition">Yükleniyor...</div>
+            <div class="details">
+                <span id="current-humidity">Nem: --%</span>
+                <span id="current-wind">Rüzgar: -- km/s</span>
+            </div>
+        </div>
+
+        <!-- 10 Günlük Tahmin -->
+        <div class="forecast">
+            <div class="forecast-title">10 Günlük Detaylı Tahmin</div>
+            <div id="forecast-list"></div>
+        </div>
     </div>
+
+    <!-- Saatlik Detay Penceresi (Modal) -->
+    <div id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modal-title">Saatlik Detay</span>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            <div class="hourly-list" id="hourly-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const lat = 47.0707;
+        const lon = 15.4385;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=10&timezone=Europe/Berlin`;
+
+        let globalData = null;
+
+        // Canlı Saat Sayacı
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = 'Aktif Saat: ' + now.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+        }, 1000);
+
+        const weatherCodes = {
+            0: { icon: '☀️', desc: 'Açık' },
+            1: { icon: '🌤️', desc: 'Az Bulutlu' },
+            2: { icon: '⛅', desc: 'Parçalı Bulutlu' },
+            3: { icon: '☁️', desc: 'Çok Bulutlu' },
+            45: { icon: '🌫️', desc: 'Sisli' },
+            51: { icon: '🌧️', desc: 'Çiseleyen Yağmur' },
+            61: { icon: '🌧️', desc: 'Hafif Yağmurlu' },
+            63: { icon: '🌧️', desc: 'Yağmurlu' },
+            80: { icon: '🌦️', desc: 'Sağanak Yağışlı' },
+            95: { icon: '⛈️', desc: 'Fırtınalı' },
+            default: { icon: '🌡️', desc: 'Normal' }
+        };
+
+        function getWeather(code) {
+            return weatherCodes[code] || weatherCodes.default;
+        }
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                globalData = data;
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app').style.display = 'flex';
+
+                // Son Güncelleme Zamanı
+                const updateTime = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'});
+                document.getElementById('last-update').innerText = 'Son Güncelleme: ' + updateTime;
+
+                // Tarih
+                document.getElementById('current-date').innerText = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+                // Anlık Veriler
+                const cur = data.current;
+                const curInfo = getWeather(cur.weather_code);
+                document.getElementById('current-temp').innerText = Math.round(cur.temperature_2m) + '°';
+                document.getElementById('current-condition').innerText = curInfo.desc;
+                document.getElementById('current-humidity').innerText = 'Nem: ' + cur.relative_humidity_2m + '%';
+                document.getElementById('current-wind').innerText = 'Rüzgar: ' + cur.wind_speed_10m.toFixed(1) + ' km/s';
+
+                // 10 Günlük Liste
+                const listEl = document.getElementById('forecast-list');
+                listEl.innerHTML = '';
+                for(let i=0; i<10; i++) {
+                    const d = new Date(data.daily.time[i]);
+                    const dayName = i === 0 ? 'Bugün' : d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'short' });
+                    const info = getWeather(data.daily.weather_code[i]);
+
+                    listEl.innerHTML += `
+                        <div class="forecast-item" onclick="openDayDetail(${i})">
+                            <div class="forecast-day">${dayName}</div>
+                            <div class="forecast-icon">${info.icon}</div>
+                            <div class="forecast-temp">
+                                <span class="temp-max">${Math.round(data.daily.temperature_2m_max[i])}°</span>
+                                <span class="temp-min">${Math.round(data.daily.temperature_2m_min[i])}°</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(err => {
+                document.getElementById('loading').innerText = 'Veriler yüklenemedi. İnternet bağlantınızı kontrol edin.';
+            });
+
+        // Gün detayını aç (O güne ait saatlik veriler)
+        function openDayDetail(dayIndex) {
+            if(!globalData) return;
+            const d = new Date(globalData.daily.time[dayIndex]);
+            const dayStr = d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
+            document.getElementById('modal-title').innerText = dayStr + ' - Saatlik';
+
+            const hourlyList = document.getElementById('hourly-list');
+            hourlyList.innerHTML = '';
+
+            // Her gün 24 saattir (Başlangıç indexi = dayIndex * 24)
+            const startIndex = dayIndex * 24;
+            for(let h = 0; h < 24; h++) {
+                const index = startIndex + h;
+                const timeStr = globalData.hourly.time[index].split('T')[1]; // Sadece saat kısmı (00:00)
+                const temp = Math.round(globalData.hourly.temperature_2m[index]);
+                const code = globalData.hourly.weather_code[index];
+                const info = getWeather(code);
+
+                hourlyList.innerHTML += `
+                    <div class="hourly-item">
+                        <span>⏰ ${timeStr} - ${info.desc} ${info.icon}</span>
+                        <strong>${temp}°C</strong>
+                    </div>
+                `;
+            }
+
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+    </script>
 </body>
 </html>
-
